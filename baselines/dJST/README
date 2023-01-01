@@ -1,0 +1,28 @@
+To compile the programs, go to directory "src" and type "make".
+
+Word prior polarity information is specified by the constraint file "movie.constraint". The format of the file is:
+word   P(neutral|word)    P(positive|word)    P(negative|word)
+
+If use the MPQA lexicon (the file "mpqa.lex"), for positive words such as "excellent", this would translate into the constraint
+excellent   0.05    0.9     0.05
+That is, "exellent" would have 0.9 probability appearing in positive documents and the remaining equal probability appearing in documents in other classes.
+
+If some of the document labels are observed, these could be represented in the document label file such as "movie.rating". File format is:
+doc_id    P(neutral|doc)    P(positive|doc)    P(negative|doc)
+
+
+Argument settings are specified in the configuration file "mozilla.train.config" and "mozilla.test.config".
+
+To train the JST model, type:
+src/djst -est -config mozilla.train.config
+
+The model output is saved in the "out/train" dir every 200 Gibbs sampling iterations. That is, we save a trained model every 200 Gibbs sampling iterations. We can use any of these models for inference in the next step.
+
+
+To use the trained model for inference, type:
+src/djst -inf -config mozilla.test.config
+
+where we use the model generated at epoch_9-final for inferring topics from "data/test/test.dat"
+
+I also include a "run.bat" file where you can find the invokation of the djst command using the command line option directly.
+
