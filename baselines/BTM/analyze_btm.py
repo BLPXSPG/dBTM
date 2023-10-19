@@ -51,48 +51,48 @@ def load_text_data(data_dir):
       counts: A sparse matrix with shape [num_documents, num_words], representing
         the documents in a bag-of-words format.
       vocabulary: An array of strings with shape [num_words].
-      author_indices: An array of integeres with shape [num_documents], where
-        each entry represents the author who wrote the document.
-      author_map: An array of strings with shape [num_authors], containing the
-        names of each author.
+      brand_indices: An array of integeres with shape [num_documents], where
+        each entry represents the brand who wrote the document.
+      brand_map: An array of strings with shape [num_brands], containing the
+        names of each brand.
     """
     vocabulary = np.loadtxt(
         os.path.join(data_dir, "vocabulary.txt"),
         dtype=str,
         delimiter="\n",
         comments="<!-")
-    author_map = np.loadtxt(
-        os.path.join(data_dir, "author_map.txt"),
+    brand_map = np.loadtxt(
+        os.path.join(data_dir, "brand_map.txt"),
         dtype=str,
         delimiter="\n")
-    return vocabulary, author_map
+    return vocabulary, brand_map
 
 
-def get_author_score_real(score_indices, author_indices, author_map):
+def get_brand_score_real(score_indices, brand_indices, brand_map):
     # Get average of brand score
-    author_score = {}
+    brand_score = {}
     for i in range(len(score_indices)):
-        if author_indices[i] in author_score:
-            author_score[author_indices[i]
-                         ] = author_score[author_indices[i]] + [score_indices[i]]
+        if brand_indices[i] in brand_score:
+            brand_score[brand_indices[i]
+                         ] = brand_score[brand_indices[i]] + [score_indices[i]]
         else:
-            author_score[author_indices[i]] = [score_indices[i]]
-    author_score_real = {}
-    for author_i in author_score:
-        author_score_real[author_map[author_i]] = sum(
-            author_score[author_i])/len(author_score[author_i])
-    return author_score_real
+            brand_score[brand_indices[i]] = [score_indices[i]]
+    brand_score_real = {}
+    for brand_i in brand_score:
+        brand_score_real[brand_map[brand_i]] = sum(
+            brand_score[brand_i])/len(brand_score[brand_i])
+    return brand_score_real
 
 
 def load_score_data(source_dir, time):
     data_dir = os.path.join(source_dir, "time", str(time))
-    author_indices = np.load(
-        os.path.join(data_dir, "author_indices.npy")).astype(np.int32)
+    brand_indices = np.load(
+        os.path.join(data_dir, "brand_indices.npy")).astype(np.int32)
     score_indices = np.load(
         os.path.join(data_dir, "score_indices.npy")).astype(np.int32)
     score_initial = np.load(
         os.path.join(data_dir, "score_indices_initial.npy")).astype(np.int32)
-    return score_indices, author_indices, score_initial
+    return score_indices, brand_indices, score_initial
 
 
 def get_score_trend(rating_difference, rating_difference_real):
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     if not os.path.exists(coherence_input_dir):
         os.makedirs(coherence_input_dir)
 
-    (vocabulary, author_map) = load_text_data(data_dir)
+    (vocabulary, brand_map) = load_text_data(data_dir)
 
     time_dir = os.path.join(source_dir, "time")
     time_choice = [int(filename) for filename in os.listdir(time_dir)]
@@ -140,9 +140,9 @@ if __name__ == "__main__":
     for time in time_choice:
         print("time", time_slice_index)
 
-        # Load author_indices, score_indices, product_indices
-        score_indices, author_indices, score_initial = load_score_data(source_dir, time)
-        author_score_real = get_author_score_real(score_indices, author_indices, author_map)
+        # Load brand_indices, score_indices, product_indices
+        score_indices, brand_indices, score_initial = load_score_data(source_dir, time)
+        brand_score_real = get_brand_score_real(score_indices, brand_indices, brand_map)
 
         # Load BTM parameters.
         param_dir = os.path.join(source_dir, "btm-fits", str(time), "params")
@@ -164,17 +164,17 @@ if __name__ == "__main__":
         time_slice_index += 1        
 
         # Print ideal point orderings.
-        author_score_generated = {}
+        brand_score_generated = {}
         ideal_point_loc = ideal_point_loc
-        rating_real = list([author_score_real[author] for author in author_map])
-        for i in range(len(author_map)):
-            author_score_real[author_map[i]] = rating_real[i]
+        rating_real = list([brand_score_real[brand] for brand in brand_map])
+        for i in range(len(brand_map)):
+            brand_score_real[brand_map[i]] = rating_real[i]
         
-        for i in range(len(author_map)):
+        for i in range(len(brand_map)):
             index = np.argsort(ideal_point_loc)[i]
-            author_score_generated[author_map[index]] = ideal_point_loc[index]
+            brand_score_generated[brand_map[index]] = ideal_point_loc[index]
         
-        rating_generated = [author_score_generated[author] for author in author_map]
+        rating_generated = [brand_score_generated[brand] for brand in brand_map]
 
         try:
             if output_trend:
@@ -200,7 +200,7 @@ if __name__ == "__main__":
                                                        sentiment_label = sentiment_label,
                                                        cut=1)
 
-        brand_score_plots[time] = {"real":author_score_real, "generated":author_score_generated}
+        brand_score_plots[time] = {"real":brand_score_real, "generated":brand_score_generated}
         print()
 
     with open(os.path.join(project_dir, "BTM", "data", "beauty_makeupalley", "topic_words.txt"), "w") as f:
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     ACC_all = []
     MAE_all = []
     test_time_list = [i for i in range(len(time_choice))][1:]
-    for brand in author_map:        
+    for brand in brand_map:        
         brand_score_plots_sort[brand] = list(brand_score_plots_sort[brand])
         brand_score_plots_sort[brand+"real"] = list(brand_score_plots_sort[brand+"real"])
         score_difference = [abs(brand_score_plots_sort[brand][i] - brand_score_plots_sort[brand + "real"][i]) for i in test_time_list]

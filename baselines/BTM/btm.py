@@ -68,11 +68,11 @@ flags.DEFINE_float("dev_ratio",
 FLAGS = flags.FLAGS
 
 
-def build_database(random_state, num_documents, counts_transformation, counts, author_indices, score_indices, batch_size, dev_ratio, dev=True, balance=True):
+def build_database(random_state, num_documents, counts_transformation, counts, brand_indices, score_indices, batch_size, dev_ratio, dev=True, balance=True):
     # Shuffle data.
     print(counts.dtype)
     documents = random_state.permutation(num_documents)
-    shuffled_author_indices = author_indices[documents]
+    shuffled_brand_indices = brand_indices[documents]
     shuffled_score_indices = score_indices[documents]
     shuffled_counts = counts[documents].astype(np.float32)
     print(shuffled_counts.dtype)
@@ -96,7 +96,7 @@ def build_database(random_state, num_documents, counts_transformation, counts, a
         dense_shape=shuffled_counts.shape)
     print(shuffled_counts.dtype)
     dataset = tf.data.Dataset.from_tensor_slices(
-        (documents, shuffled_counts, shuffled_author_indices, shuffled_score_indices))
+        (documents, shuffled_counts, shuffled_brand_indices, shuffled_score_indices))
 
     if dev:
         dev_num = int(num_documents*dev_ratio)
@@ -109,11 +109,11 @@ def build_database(random_state, num_documents, counts_transformation, counts, a
 
     if balance:
         # Here we balance the pos/neg reviews in mini-batch
-        ds_pos = dataset.filter(lambda documents, shuffled_counts, shuffled_author_indices,
+        ds_pos = dataset.filter(lambda documents, shuffled_counts, shuffled_brand_indices,
                                 shuffled_score_indices: tf.reshape(tf.equal(shuffled_score_indices, 2), []))
-        ds_neu = dataset.filter(lambda documents, shuffled_counts, shuffled_author_indices,
+        ds_neu = dataset.filter(lambda documents, shuffled_counts, shuffled_brand_indices,
                                 shuffled_score_indices: tf.reshape(tf.equal(shuffled_score_indices, 1), []))
-        ds_neg = dataset.filter(lambda documents, shuffled_counts, shuffled_author_indices,
+        ds_neg = dataset.filter(lambda documents, shuffled_counts, shuffled_brand_indices,
                                 shuffled_score_indices: tf.reshape(tf.equal(shuffled_score_indices, 0), []))
         # ds_neg = ds_neg.concatenate(ds_neu)
         ds_neg = ds_neg.repeat()
@@ -133,13 +133,13 @@ def load_data(data_dir):
     counts = sparse.load_npz(os.path.join(data_dir, "counts.npz"))
     num_documents, num_words = counts.shape
     print(num_documents, num_words)
-    author_indices = np.load(
-        os.path.join(data_dir, "author_indices.npy")).astype(np.int32)
+    brand_indices = np.load(
+        os.path.join(data_dir, "brand_indices.npy")).astype(np.int32)
     score_indices = np.load(
         os.path.join(data_dir, "score_indices.npy")).astype(np.int32)
-    num_authors = np.max(author_indices + 1)
+    num_brands = np.max(brand_indices + 1)
 
-    return num_documents, num_words, counts, author_indices, score_indices, num_authors
+    return num_documents, num_words, counts, brand_indices, score_indices, num_brands
 
 
 def build_input_pipeline(source_dir,
@@ -152,8 +152,8 @@ def build_input_pipeline(source_dir,
     """Load data and build iterator for minibatches.
     Args:
       data_dir: The directory where the data is located. There must be four
-        files inside the rep: `counts.npz`, `author_indices.npy`,
-        `author_map.txt`, and `vocabulary.txt`.
+        files inside the rep: `counts.npz`, `brand_indices.npy`,
+        `brand_map.txt`, and `vocabulary.txt`.
       batch_size: The batch size to use for training.
       random_state: A NumPy `RandomState` object, used to shuffle the data.
       counts_transformation: A string indicating how to transform the counts.
@@ -162,21 +162,21 @@ def build_input_pipeline(source_dir,
     data_dir = os.path.join(source_dir, "clean")
     if test:
         train_dir = os.path.join(source_dir, "time", str(time_slice))
-        num_documents, num_words, counts, author_indices, score_indices, num_authors = load_data(
+        num_documents, num_words, counts, brand_indices, score_indices, num_brands = load_data(
             train_dir)
         iterator, dev_iterator = build_database(random_state, num_documents, counts_transformation,
-                                                counts, author_indices, score_indices, batch_size, dev_ratio)
+                                                counts, brand_indices, score_indices, batch_size, dev_ratio)
 
         test_iterator, _ = build_database(random_state, num_documents, counts_transformation,
-                                          counts, author_indices, score_indices, batch_size, dev_ratio, dev=False, balance=False)
+                                          counts, brand_indices, score_indices, batch_size, dev_ratio, dev=False, balance=False)
     else:
-        num_documents, num_words, counts, author_indices, score_indices, num_authors = load_data(
+        num_documents, num_words, counts, brand_indices, score_indices, num_brands = load_data(
             data_dir)
         iterator, dev_iterator = build_database(random_state, num_documents, counts_transformation,
-                                                counts, author_indices, score_indices, batch_size, dev_ratio)
+                                                counts, brand_indices, score_indices, batch_size, dev_ratio)
         test_iterator = 0
 
-    author_map = np.loadtxt(os.path.join(data_dir, "author_map.txt"),
+    brand_map = np.loadtxt(os.path.join(data_dir, "brand_map.txt"),
                             dtype=str,
                             delimiter="\n")
     vocabulary = np.loadtxt(os.path.join(data_dir, "vocabulary.txt"),
@@ -184,16 +184,16 @@ def build_input_pipeline(source_dir,
                             delimiter="\n",
                             comments="<!-")
 
-    total_counts_per_author = np.bincount(
-        author_indices,
+    total_counts_per_brand = np.bincount(
+        brand_indices,
         weights=np.array(np.sum(counts, axis=1)).flatten())
-    counts_per_document_per_author = (
-        total_counts_per_author / np.bincount(author_indices))
-    # Author weights is how much lengthy each author's opinion over average is.
-    author_weights = (counts_per_document_per_author /
+    counts_per_document_per_brand = (
+        total_counts_per_brand / np.bincount(brand_indices))
+    # brand weights is how much lengthy each brand's opinion over average is.
+    brand_weights = (counts_per_document_per_brand /
                       np.mean(np.sum(counts, axis=1))).astype(np.float32)
-    return (iterator, dev_iterator, test_iterator, author_weights, vocabulary, author_map,
-            num_documents, num_words, num_authors)
+    return (iterator, dev_iterator, test_iterator, brand_weights, vocabulary, brand_map,
+            num_documents, num_words, num_brands)
 
 
 def build_lognormal_variational_parameters(initial_document_loc,
@@ -297,9 +297,9 @@ def print_topics(neutral_mean, negative_mean, positive_mean, vocabulary):
     return np.array(topic_strings)
 
 
-def print_ideal_points(ideal_point_loc, author_map):
+def print_ideal_points(ideal_point_loc, brand_map):
     """Print ideal point ordering for Tensorboard."""
-    return ", ".join(author_map[np.argsort(ideal_point_loc)])
+    return ", ".join(brand_map[np.argsort(ideal_point_loc)])
 
 
 def get_log_prior(samples, prior):
@@ -391,8 +391,8 @@ def example_from_rate(rate, class_limit, class_list, outcome_vector, k_factorial
 
 def get_elbo(counts,
              document_indices,
-             author_indices,
-             author_weights,
+             brand_indices,
+             brand_weights,
              document_distribution,
              objective_topic_distribution,
              ideological_topic_distribution,
@@ -409,8 +409,8 @@ def get_elbo(counts,
     Args:
       counts: A matrix with shape `[batch_size, num_words]`.
       document_indices: An int-vector with shape `[batch_size]`.
-      author_indices: An int-vector with shape `[batch_size]`.
-      author_weights: A vector with shape `[num_authors]`, constituting how
+      brand_indices: An int-vector with shape `[batch_size]`.
+      brand_weights: A vector with shape `[num_brands]`, constituting how
         lengthy the opinion is above average.
       document_distribution: A positive `Distribution` object with parameter
         shape `[num_documents, num_topics]`.
@@ -419,7 +419,7 @@ def get_elbo(counts,
       ideological_topic_distribution: A positive `Distribution` object with
         parameter shape `[num_topics, num_words]`.
       ideal_point_distribution: A `Distribution` object over [0, 1] with
-        parameter_shape `[num_authors]`.
+        parameter_shape `[num_brands]`.
       num_documents: The number of documents in the total data set (used to
         calculate log-likelihood scale).
       batch_size: Batch size (used to calculate log-likelihood scale).
@@ -457,7 +457,7 @@ def get_elbo(counts,
                                           document_indices,
                                           axis=1)
     selected_ideal_points = tf.gather(ideal_point_samples,
-                                      author_indices,
+                                      brand_indices,
                                       axis=1)
 
     # polarity score
@@ -474,13 +474,13 @@ def get_elbo(counts,
     objective_topic_samples_copys = tf.tile(
         objective_topic_samples[:, tf.newaxis, :, :], copy_num)
 
-    # Normalize by how lengthy the author's opinion is.
-    selected_author_weights = tf.gather(author_weights, author_indices)
+    # Normalize by how lengthy the brand's opinion is.
+    selected_brand_weights = tf.gather(brand_weights, brand_indices)
     selected_ideological_topic_samples = (
-        selected_author_weights[tf.newaxis, :, tf.newaxis, tf.newaxis] *
+        selected_brand_weights[tf.newaxis, :, tf.newaxis, tf.newaxis] *
         selected_ideological_topic_samples)
     reversed_ideological_topic_samples = (
-        selected_author_weights[tf.newaxis, :, tf.newaxis, tf.newaxis] *
+        selected_brand_weights[tf.newaxis, :, tf.newaxis, tf.newaxis] *
         reversed_ideological_topic_samples)
 
     document_entropy = -tf.reduce_sum(
@@ -554,7 +554,7 @@ def get_elbo(counts,
     return elbo, score_loss,
 
 
-def initial_distribution(time_slice, source_dir, num_documents, num_words, num_authors, random_state):
+def initial_distribution(time_slice, source_dir, num_documents, num_words, num_brands, random_state):
     # if pre_initialize_parameters:
     fit_dir = os.path.join(source_dir, "pf-fits", str(time_slice))
     fitted_document_shape = np.load(
@@ -602,12 +602,12 @@ def initial_distribution(time_slice, source_dir, num_documents, num_words, num_a
 
     ideal_point_loc = tf.get_variable(
         "ideal_point_loc",
-        shape=[num_authors],
+        shape=[num_brands],
         dtype=tf.float32)
     ideal_point_scale_logit = tf.get_variable(
         "ideal_point_scale_logit",
         initializer=tf.initializers.random_normal(mean=0, stddev=1.),
-        shape=[num_authors],
+        shape=[num_brands],
         dtype=tf.float32)
     ideal_point_scale = tf.nn.softplus(ideal_point_scale_logit)
     ideal_point_distribution = tfp.distributions.Normal(
@@ -769,8 +769,8 @@ def main(argv):
         tf.set_random_seed(FLAGS.seed)
         random_state = np.random.RandomState(FLAGS.seed)
 
-        (iterator, dev_iterator, test_iterator, author_weights, vocabulary, author_map,
-         num_documents, num_words, num_authors) = build_input_pipeline(
+        (iterator, dev_iterator, test_iterator, brand_weights, vocabulary, brand_map,
+         num_documents, num_words, num_brands) = build_input_pipeline(
             source_dir,
             FLAGS.batch_size,
             random_state,
@@ -780,18 +780,18 @@ def main(argv):
 
         test_check = tf.placeholder(tf.bool)
         dev_check = tf.placeholder(tf.bool)
-        document_indices, counts, author_indices, score_indices = tf.cond(
+        document_indices, counts, brand_indices, score_indices = tf.cond(
             test_check, lambda: test_iterator.get_next(), lambda: iterator.get_next())
-        document_indices, counts, author_indices, score_indices = tf.cond(
-            dev_check, lambda: dev_iterator.get_next(), lambda: (document_indices, counts, author_indices, score_indices))
+        document_indices, counts, brand_indices, score_indices = tf.cond(
+            dev_check, lambda: dev_iterator.get_next(), lambda: (document_indices, counts, brand_indices, score_indices))
 
         document_distribution, objective_topic_distribution, ideological_topic_distribution, ideal_point_distribution, document_loc, document_scale, objective_topic_loc, objective_topic_scale, ideological_topic_loc, ideological_topic_scale, ideal_point_loc, ideal_point_scale = initial_distribution(
-            time_slice, source_dir, num_documents, num_words, num_authors, random_state)
+            time_slice, source_dir, num_documents, num_words, num_brands, random_state)
         num_documents = tf.cast(num_documents, tf.float32)
         elbo, score_loss = get_elbo(counts,
                                     document_indices,
-                                    author_indices,
-                                    author_weights,
+                                    brand_indices,
+                                    brand_weights,
                                     document_distribution,
                                     objective_topic_distribution,
                                     ideological_topic_distribution,

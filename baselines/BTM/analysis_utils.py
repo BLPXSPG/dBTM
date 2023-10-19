@@ -16,10 +16,10 @@ def load_text_data(data_dir):
     counts: A sparse matrix with shape [num_documents, num_words], representing
       the documents in a bag-of-words format.
     vocabulary: An array of strings with shape [num_words].
-    author_indices: An array of integeres with shape [num_documents], where
-      each entry represents the author who wrote the document.
-    author_map: An array of strings with shape [num_authors], containing the
-      names of each author.
+    brand_indices: An array of integeres with shape [num_documents], where
+      each entry represents the brand who wrote the document.
+    brand_map: An array of strings with shape [num_brands], containing the
+      names of each brand.
     raw_documents: A string vector with shape [num_documents] containing the
       raw documents.
   """
@@ -30,10 +30,10 @@ def load_text_data(data_dir):
       dtype=str,
       delimiter="\n",
       comments="<!-")
-  author_indices = np.load(
-      os.path.join(data_dir, "author_indices.npy")).astype(np.int32)
-  author_map = np.loadtxt(
-      os.path.join(data_dir, "author_map.txt"),
+  brand_indices = np.load(
+      os.path.join(data_dir, "brand_indices.npy")).astype(np.int32)
+  brand_map = np.loadtxt(
+      os.path.join(data_dir, "brand_map.txt"),
       dtype=str,
       delimiter="\n")
   raw_documents = np.loadtxt(
@@ -41,7 +41,7 @@ def load_text_data(data_dir):
       dtype=str,
       delimiter="\n",
       comments="<!-")
-  return counts, vocabulary, author_indices, author_map, raw_documents
+  return counts, vocabulary, brand_indices, brand_map, raw_documents
 
 
 def load_tbip_parameters(param_dir):
@@ -64,9 +64,9 @@ def load_tbip_parameters(param_dir):
     ideological_topic_scale: Variational Gaussian scale parameter for the
       ideological topic (eta), with shape [num_topics, num_words].
     ideal_point_loc: Variational Gaussian location parameter for the
-      ideal points (x), with shape [num_authors].
+      ideal points (x), with shape [num_brands].
     ideal_point_scale: Variational Gaussian scale parameter for the
-      ideal points (x), with shape [num_authors].
+      ideal points (x), with shape [num_brands].
   """
   document_loc = np.load(
       os.path.join(param_dir, "document_scale.npy"))
@@ -150,9 +150,9 @@ def load_vote_ideal_point_parameters(param_dir):
     popularity_scale: Variational Gaussian scale parameter for the
       popularities (alpha), with shape [num_bills].
     ideal_point_loc: Variational Gaussian location parameter for the
-      ideal points (x), with shape [num_authors].
+      ideal points (x), with shape [num_brands].
     ideal_point_scale: Variational Gaussian scale parameter for the
-      ideal points (x), with shape [num_authors].
+      ideal points (x), with shape [num_brands].
   """
   polarity_loc = np.load(os.path.join(param_dir, "polarity_loc.npy"))
   polarity_scale = np.load(os.path.join(param_dir, "polarity_scale.npy"))
@@ -284,22 +284,22 @@ def print_topics(objective_topic_loc,
   print("{}\n".format(np.array(topic_strings)))
 
 
-def match_authors_with_votes(text_ideal_points,
+def match_brands_with_votes(text_ideal_points,
                              vote_ideal_points,
-                             author_map,
+                             brand_map,
                              voter_map,
                              verbose=False):
-  """Matches the list of Senate authors with vote IDs.
+  """Matches the list of Senate brands with vote IDs.
 
   Can work for either Senate speeches or Senate tweets.
 
   Args:
     text_ideal_points: The learned ideal points from the TBIP for Senator
-      speeches or tweets, an array with shape [num_authors].
+      speeches or tweets, an array with shape [num_brands].
     vote_ideal_points: The vote ideal points for Senators, an array with shape
       [num_voters].
-    author_map: The list of author names used by the TBIP, with shape
-      [num_authors].
+    brand_map: The list of brand names used by the TBIP, with shape
+      [num_brands].
     voter_map: The list of Senator names used for vote data, with shape
       [num_voters].
     verbose: A boolean that determines whether to print the matched and
@@ -307,69 +307,69 @@ def match_authors_with_votes(text_ideal_points,
 
   Returns:
     text_id_to_vote_id: A dictionary where each key is an index in {0, 1, ...,
-      num_authors - 1}, which maps to the corresponding voter index in {0, 1,
+      num_brands - 1}, which maps to the corresponding voter index in {0, 1,
       ..., num_voters -1}. The number of entries in the dictionary is at most
-      min(num_authors, num_voters).
+      min(num_brands, num_voters).
   """
   text_id_to_vote_id = {}
-  for author_ind, author in enumerate(author_map):
-    last_name_and_party = ' '.join(author.lower().split(" ")[-2:])
+  for brand_ind, brand in enumerate(brand_map):
+    last_name_and_party = ' '.join(brand.lower().split(" ")[-2:])
     matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                      if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 0 and author == "Joseph Lieberman (I)":
+    if len(matching_inds) == 0 and brand == "Joseph Lieberman (I)":
       last_name_and_party = "lieberman (d)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Ben Nelson (D)":
+    if len(matching_inds) == 2 and brand == "Ben Nelson (D)":
       last_name_and_party = "earl nelson (d)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Bill Nelson (D)":
+    if len(matching_inds) == 2 and brand == "Bill Nelson (D)":
       last_name_and_party = "clarence nelson (d)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Tom Udall (D)":
+    if len(matching_inds) == 2 and brand == "Tom Udall (D)":
       last_name_and_party = "thomas udall (d)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Mark Udall (D)":
+    if len(matching_inds) == 2 and brand == "Mark Udall (D)":
       last_name_and_party = "mark udall (d)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 0 and author == "Mark Dayton (DFL)":
+    if len(matching_inds) == 0 and brand == "Mark Dayton (DFL)":
       last_name_and_party = "mark dayton (d)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Gordon Smith (R)":
+    if len(matching_inds) == 2 and brand == "Gordon Smith (R)":
       last_name_and_party = "gordon smith (r)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Robert C. Smith (R)":
+    if len(matching_inds) == 2 and brand == "Robert C. Smith (R)":
       last_name_and_party = "robert smith (r)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
-    if len(matching_inds) == 2 and author == "Lincoln D. Chafee (R)":
+    if len(matching_inds) == 2 and brand == "Lincoln D. Chafee (R)":
       last_name_and_party = "lincoln chafee (r)"
       matching_inds = [vote_ind for vote_ind in range(len(voter_map))
                        if last_name_and_party in voter_map[vote_ind].lower()]
     if len(matching_inds) != 1:
       if verbose:
-        print("Error with speech author {}: {} matching indices in vote "
-              "authors".format(author, len(matching_inds)))
+        print("Error with speech brand {}: {} matching indices in vote "
+              "brands".format(brand, len(matching_inds)))
     else:
-      text_id_to_vote_id[author_ind] = matching_inds[0]
+      text_id_to_vote_id[brand_ind] = matching_inds[0]
       if verbose:
-        print("Matched {} with {}".format(author, voter_map[matching_inds[0]]))
+        print("Matched {} with {}".format(brand, voter_map[matching_inds[0]]))
   if verbose:
-    print("Matched {} pairs (out of {} authors and {} voters).\n".format(
-        len(text_id_to_vote_id.keys()), len(author_map), len(voter_map)))
+    print("Matched {} pairs (out of {} brands and {} voters).\n".format(
+        len(text_id_to_vote_id.keys()), len(brand_map), len(voter_map)))
 
   matches_found = np.array(list(text_id_to_vote_id.keys()))
-  combined_author_map = author_map[matches_found]
+  combined_brand_map = brand_map[matches_found]
   text_ideal_points = text_ideal_points[matches_found]
   vote_ideal_points = np.array([vote_ideal_points[text_id_to_vote_id[text_id]]
                                 for text_id in matches_found])
-  return text_ideal_points, vote_ideal_points, combined_author_map
+  return text_ideal_points, vote_ideal_points, combined_brand_map
 
 
 def standardize(x):
@@ -416,14 +416,14 @@ def get_rank_correlation(list_a, list_b):
   return rank_correlation
 
 
-def get_verbosity_weights(counts, author_indices):
-  """Compute weights to capture author verbosity (as described in Appendix A).
+def get_verbosity_weights(counts, brand_indices):
+  """Compute weights to capture brand verbosity (as described in Appendix A).
 
-  Specifically, if n_s is the average word count over documents for author s,
+  Specifically, if n_s is the average word count over documents for brand s,
   we set a weight: w_s = n_s / (1/S sum_s' n_s'). That is, if w_s is 1, the
-  author is as verbose as the average author. If it is more than 1 the author
+  brand is as verbose as the average brand. If it is more than 1 the brand
   is more verbose (i.e. uses more words per document), and if it is less than
-  1 the author is less verbose (i.e. uses less words per document).
+  1 the brand is less verbose (i.e. uses less words per document).
 
   We find this modification does not make much of a difference for the
   correlation results, but it helps us interpret the ideal points for the
@@ -431,20 +431,20 @@ def get_verbosity_weights(counts, author_indices):
 
   Args:
     counts: A matrix of word counts, with shape [num_documents, num_words].
-    author_indices: An int-vector of author indices, with shape
-      [num_documents]. Each index is in the set {0, 1, ..., num_authors - 1},
-      and indicates the author of the document.
+    brand_indices: An int-vector of brand indices, with shape
+      [num_documents]. Each index is in the set {0, 1, ..., num_brands - 1},
+      and indicates the brand of the document.
 
   Returns:
-    verbosity_weights: A vector with shape [num_authors], where each entry is a
-      weight that captures the author's verbosity.
+    verbosity_weights: A vector with shape [num_brands], where each entry is a
+      weight that captures the brand's verbosity.
   """
-  total_counts_per_author = np.bincount(
-      author_indices,
+  total_counts_per_brand = np.bincount(
+      brand_indices,
       weights=np.array(np.sum(counts, axis=1)).flatten())
-  counts_per_document_per_author = (
-      total_counts_per_author / np.bincount(author_indices))
-  verbosity_weights = (counts_per_document_per_author /
+  counts_per_document_per_brand = (
+      total_counts_per_brand / np.bincount(brand_indices))
+  verbosity_weights = (counts_per_document_per_brand /
                        np.mean(np.sum(counts, axis=1)))
   return verbosity_weights
 
@@ -453,8 +453,8 @@ def compute_likelihood_ratio(name,
                              true_ideal_points,
                              counts,
                              vocabulary,
-                             author_indices,
-                             author_map,
+                             brand_indices,
+                             brand_map,
                              document_mean,
                              objective_topic_mean,
                              ideological_topic_mean,
@@ -465,29 +465,29 @@ def compute_likelihood_ratio(name,
   """Compute top documents and words based on likelihood ratio statistic.
 
   Args:
-    name: Name of author to calculate ratio for.
-    true_ideal_points: A vector of length [num_authors] containing the learned
+    name: Name of brand to calculate ratio for.
+    true_ideal_points: A vector of length [num_brands] containing the learned
       TBIP ideal points.
     counts: A sparse matrix with shape [num_documents, num_words], representing
       the documents in a bag-of-words format.
     vocabulary: An array of strings with shape [num_words].
-    author_indices: An array of integeres with shape [num_documents], where
-      each entry represents the author who wrote the document.
-    author_map: An array of strings with shape [num_authors], containing the
-      names of each author.
+    brand_indices: An array of integeres with shape [num_documents], where
+      each entry represents the brand who wrote the document.
+    brand_map: An array of strings with shape [num_brands], containing the
+      names of each brand.
     document_mean: The learned variational mean for the document intensities
       (theta). A matrix with shape [num_documents, num_words].
     objective_topic_mean: The learned variational mean for the objective
       topics (beta). A matrix with shape [num_words, num_topics].
     ideological_topic_mean: The learned variational mean for the ideological
       topics (eta). A matrix with shape [num_words, num_topics].
-    verbosity_weights: A vector with shape [num_authors], where each entry is a
-      weight that captures the author's verbosity.
+    verbosity_weights: A vector with shape [num_brands], where each entry is a
+      weight that captures the brand's verbosity.
     raw_documents: A string vector with shape [num_documents] containing the
       raw documents.
     null_ideal_point: The null ideal point for the likelihood ratio test. For
-      example, a null ideal point of 0 would capture why the author is away
-      from 0 (which documents and words make this author extreme?).
+      example, a null ideal point of 0 would capture why the brand is away
+      from 0 (which documents and words make this brand extreme?).
     log_counts: A boolean, whether to use the logged counts as the output data.
     query_size: Number of documents to query.
 
@@ -499,25 +499,25 @@ def compute_likelihood_ratio(name,
       the top word in each of the top `query_size` documents identified by the
       likelihood ratio statistic.
   """
-  author_index = np.where(author_map == name)[0][0]
-  author_documents = np.where(author_indices == author_index)[0]
-  true_ideal_point = true_ideal_points[author_index]
-  author_weight = verbosity_weights[author_index]
-  null_rate = author_weight * np.matmul(
-      document_mean[author_documents],
+  brand_index = np.where(brand_map == name)[0][0]
+  brand_documents = np.where(brand_indices == brand_index)[0]
+  true_ideal_point = true_ideal_points[brand_index]
+  brand_weight = verbosity_weights[brand_index]
+  null_rate = brand_weight * np.matmul(
+      document_mean[brand_documents],
       objective_topic_mean * np.exp(ideological_topic_mean * null_ideal_point))
-  true_rate = author_weight * np.matmul(
-      document_mean[author_documents],
+  true_rate = brand_weight * np.matmul(
+      document_mean[brand_documents],
       objective_topic_mean * np.exp(ideological_topic_mean * true_ideal_point))
   counts = counts.toarray()
   if log_counts:
     counts = np.round(np.log(counts + 1))
-  null_log_prob = poisson.logpmf(counts[author_documents], null_rate)
-  true_log_prob = poisson.logpmf(counts[author_documents], true_rate)
+  null_log_prob = poisson.logpmf(counts[brand_documents], null_rate)
+  true_log_prob = poisson.logpmf(counts[brand_documents], true_rate)
   log_likelihood_ratios = true_log_prob - null_log_prob
   summed_log_likelihood_ratios = np.sum(log_likelihood_ratios, axis=1)
   top_document_indices = np.argsort(-summed_log_likelihood_ratios)[:query_size]
-  top_document_indices = author_documents[top_document_indices]
+  top_document_indices = brand_documents[top_document_indices]
   top_word_indices = np.argmax(log_likelihood_ratios, axis=1)
   top_words = vocabulary[top_word_indices]
   return top_document_indices, top_words
@@ -585,8 +585,8 @@ def compute_vote_likelihood_ratio(name,
     polarity_mean: The learned variational mean for the bill polarities (eta).
       A vector with shape [num_bills].
     null_ideal_point: The null ideal point for the likelihood ratio test. For
-      example, a null ideal point of 0 would capture why the author is away
-      from 0 (which documents and words make this author extreme?).
+      example, a null ideal point of 0 would capture why the brand is away
+      from 0 (which documents and words make this brand extreme?).
     query_size: Number of documents to query.
 
   Returns:
